@@ -46,7 +46,8 @@ jobs:
 
           release_url="https://github.com/morrow-project/morrow/releases/download/${VERSION}/morrow-${VERSION}-macos-arm64.tar.gz"
           curl --fail --silent --show-error --head --location "${release_url}"
-          brew audit --formula --strict Formula/morrow.rb
+          brew tap morrow-project/morrow "https://github.com/morrow-project/homebrew-morrow"
+          brew audit --formula --strict --tap=morrow-project/morrow
 
           if git ls-remote --exit-code --tags origin "refs/tags/${VERSION}" >/dev/null 2>&1; then
             echo "Tap tag ${VERSION} already exists" >&2
