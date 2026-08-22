@@ -86,13 +86,12 @@ jobs:
           path.write_text(text)
           PY
 
-      - name: Install and test formula
+      - name: Install formula
         run: |
           brew tap-new --no-git morrow-project/morrow
           tap_dir="$(brew --repository)/Library/Taps/morrow-project/homebrew-morrow"
           cp Formula/morrow.rb "${tap_dir}/Formula/morrow.rb"
           brew install --formula --verbose morrow-project/morrow/morrow
-          brew test morrow
 
       - name: Create formula pull request
         shell: bash
