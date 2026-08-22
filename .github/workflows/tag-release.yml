@@ -1,0 +1,65 @@
+name: Tag Morrow Homebrew Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Merged Morrow version to tag, such as 0.1.1
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  tag:
+    name: Tag formula ${{ inputs.version }}
+    runs-on: macos-14
+    steps:
+      - name: Check out main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Verify merged formula
+        shell: bash
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          if [[ ! "${VERSION}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Release tags must use plain semantic versions such as 0.1.1; got ${VERSION}" >&2
+            exit 1
+          fi
+
+          formula_version="$(sed -nE 's/^  version "([^"]+)"$/\1/p' Formula/morrow.rb)"
+          formula_sha256="$(sed -nE 's/^  sha256 "([^"]+)"$/\1/p' Formula/morrow.rb)"
+          if [[ "${formula_version}" != "${VERSION}" ]]; then
+            echo "Formula version ${formula_version} does not match ${VERSION}" >&2
+            exit 1
+          fi
+          if [[ ! "${formula_sha256}" =~ ^[0-9a-f]{64}$ ]]; then
+            echo "Formula is missing a valid SHA-256 checksum" >&2
+            exit 1
+          fi
+
+          release_url="https://github.com/morrow-project/morrow/releases/download/${VERSION}/morrow-${VERSION}-macos-arm64.tar.gz"
+          curl --fail --silent --show-error --head --location "${release_url}"
+          brew audit --formula --strict Formula/morrow.rb
+
+          if git ls-remote --exit-code --tags origin "refs/tags/${VERSION}" >/dev/null 2>&1; then
+            echo "Tap tag ${VERSION} already exists" >&2
+            exit 1
+          fi
+
+      - name: Create and push tag
+        shell: bash
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag --annotate "${VERSION}" --message "Release ${VERSION}"
+          git push origin "${VERSION}"

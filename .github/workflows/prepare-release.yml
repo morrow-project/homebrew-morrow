@@ -1,0 +1,113 @@
+name: Prepare Morrow Homebrew Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Morrow version to package, such as 0.1.1
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  prepare:
+    name: Prepare formula ${{ inputs.version }}
+    runs-on: macos-14
+    steps:
+      - name: Check out main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Download Morrow release
+        shell: bash
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          if [[ ! "${VERSION}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Release versions must use plain semantic versions such as 0.1.1; got ${VERSION}" >&2
+            exit 1
+          fi
+
+          export RELEASE_URL="https://github.com/morrow-project/morrow/releases/download/${VERSION}/morrow-${VERSION}-macos-arm64.tar.gz"
+          curl --fail --silent --show-error --location \
+            "${RELEASE_URL}" \
+            --output "/tmp/morrow-${VERSION}.tar.gz"
+          shasum -a 256 "/tmp/morrow-${VERSION}.tar.gz" | cut -d ' ' -f 1 > /tmp/morrow-sha256
+
+      - name: Update formula
+        shell: bash
+        env:
+          VERSION: ${{ inputs.version }}
+          SHA256_FILE: /tmp/morrow-sha256
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import os
+          import re
+          from pathlib import Path
+
+          path = Path("Formula/morrow.rb")
+          text = path.read_text()
+          version = os.environ["VERSION"]
+          sha256 = Path(os.environ["SHA256_FILE"]).read_text().strip()
+
+          text, version_count = re.subn(
+              r'(?m)^  version "[^"]+"$',
+              f'  version "{version}"',
+              text,
+              count=1,
+          )
+          if version_count != 1:
+              raise SystemExit("could not find formula version")
+
+          sha_line = f'  sha256 "{sha256}"'
+          text, sha_count = re.subn(
+              r'(?m)^  sha256 "[^"]+"$',
+              sha_line,
+              text,
+              count=1,
+          )
+          if sha_count == 0:
+              text, url_count = re.subn(
+                  r'(?m)^(  url "[^"]+"$)',
+                  rf'\g<1>\n{sha_line}',
+                  text,
+                  count=1,
+              )
+              if url_count != 1:
+                  raise SystemExit("could not find formula URL")
+
+          path.write_text(text)
+          PY
+
+      - name: Audit and test formula
+        run: |
+          brew audit --formula --strict Formula/morrow.rb
+          brew install --formula --verbose Formula/morrow.rb
+          brew test morrow
+
+      - name: Create formula pull request
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          branch="release/${VERSION}"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -c "${branch}"
+          git add Formula/morrow.rb
+          git commit -m "Use Morrow ${VERSION} release binaries"
+          git push --set-upstream origin "${branch}"
+          gh pr create \
+            --base main \
+            --head "${branch}" \
+            --title "Use Morrow ${VERSION} release binaries" \
+            --body "Updates the formula to the Morrow ${VERSION} binary release and pins its SHA-256 checksum."
