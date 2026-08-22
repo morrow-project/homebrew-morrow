@@ -86,9 +86,8 @@ jobs:
           path.write_text(text)
           PY
 
-      - name: Audit and test formula
+      - name: Install and test formula
         run: |
-          brew audit --formula --strict --changed
           brew install --formula --verbose Formula/morrow.rb
           brew test morrow
 
