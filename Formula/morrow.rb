@@ -3,16 +3,13 @@ class Morrow < Formula
   homepage "https://github.com/morrow-project/morrow"
   license "MIT"
 
-  head "https://github.com/morrow-project/morrow.git", branch: "main"
-
-  depends_on "rust" => :build
+  version "0.1.0"
+  url "https://github.com/morrow-project/morrow/releases/download/#{version}/morrow-#{version}-macos-arm64.tar.gz"
 
   def install
-    system "cargo", "build", "--release", "--workspace", "--locked"
-
-    bin.install "target/release/morrow-server"
-    bin.install "target/release/morrow-cli"
-    bin.install "target/release/morrow-connector"
+    bin.install "morrow-server"
+    bin.install "morrow-cli"
+    bin.install "morrow-connector"
   end
 
   test do
