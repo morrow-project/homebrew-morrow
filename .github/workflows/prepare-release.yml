@@ -88,7 +88,7 @@ jobs:
 
       - name: Audit and test formula
         run: |
-          brew audit --formula --strict Formula/morrow.rb
+          brew audit --formula --strict --changed
           brew install --formula --verbose Formula/morrow.rb
           brew test morrow
 
