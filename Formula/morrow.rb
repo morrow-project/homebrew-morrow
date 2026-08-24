@@ -3,9 +3,9 @@ class Morrow < Formula
   homepage "https://github.com/morrow-project/morrow"
   license "MIT"
 
-  version "0.2.0"
+  version "0.2.1"
   url "https://github.com/morrow-project/morrow/releases/download/#{version}/morrow-#{version}-macos-arm64.tar.gz"
-  sha256 "8974e680a88dd6f1d190b1258b1207813d6b2c1f418687a822aae8c06496fd41"
+  sha256 "4b3b74a8ebb68f86e561a0ddbc5524710157f0fd5086a86f89578d04646dce87"
 
   def install
     bin.install "morrow-server"
